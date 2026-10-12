@@ -16,7 +16,6 @@ import { UserTransfer } from "./pages/transfer/UserTransfer";
 
 import { Wallets } from "@/pages/Wallets";
 import { Deposit } from "@/pages/Deposit/Deposit";
-import { Checkout } from "@/pages/Checkout";
 import { Transactions } from "@/pages/Transactions/Transactions";
 import { Beneficiaries } from "@/pages/Beneficiaries";
 import { Invoices } from "@/pages/invoice/Invoices";
@@ -24,13 +23,15 @@ import { InvoiceDetail } from "@/pages/invoice/InvoiceDetail";
 import { PaymentLinks } from "@/pages/paymentlink/Paymentlink";
 import { PaymentLinkDetails } from "@/pages/paymentlink/PaymentlinkDetail";
 
-
 import { Giftcards } from "@/pages/giftcards/Giftcards";
 import { GiftcardTrades } from "@/pages/giftcards/GiftcardTradesHistory";
 
+import { Customers } from "@/pages/customer/Customers";
+import { CustomerDetail } from "@/pages/customer/CustomerDetail";
+
 import { Analytics } from "@/pages/Analytics";
-import { SupportTicketPage } from "@/pages/SupportTicket";
-import { SupportTicketDetail } from "@/pages/SupportTicketDetail";
+import { SupportTicketPage } from "@/pages/support/SupportTicket";
+import { SupportTicketDetail } from "@/pages/support/SupportTicketDetail";
 import { KycVerification } from "@/pages/kyc/Verification";
 import { GetHelp } from "@/pages/GetHelp";
 
@@ -45,6 +46,10 @@ import { SessionSettings } from "@/pages/settings/SessionSettings";
 
 import { NotFound } from "@/pages/NotFound";
 
+import { Settings } from "@/pages/system/Settings";
+import { BillsPricing } from "@/pages/system/BillsPricing";
+import { PaymentGateways } from "@/pages/system/PaymentGateways";
+
 const App: React.FC = () => {
   return (
     <Routes>
@@ -56,9 +61,7 @@ const App: React.FC = () => {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/verify-otp" element={<OtpVerification />} />
       <Route path="/two-factor/authentication" element={<MfaVerification />} />
-      
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="checkout" element={<Checkout />} />
 
       {/* Convenience top-level redirect */}
       <Route path="/get-help" element={<Navigate to="/app/get-help" replace />} />
@@ -86,6 +89,8 @@ const App: React.FC = () => {
           <Route path="paymentlink" element={<PaymentLinks />} />
           <Route path="paymentlink/:id" element={<PaymentLinkDetails />} />
 
+          <Route path="customers" element={<Customers />} />
+          <Route path="customers/:id" element={<CustomerDetail />} />
 
           <Route path="giftcards" element={<Giftcards />} />
           <Route path="giftcards/trades" element={<GiftcardTrades />} />
@@ -99,6 +104,11 @@ const App: React.FC = () => {
           <Route path="settings/account" element={<AccountSettings />} />
           <Route path="settings/security" element={<SecuritySettings />} />
           <Route path="settings/sessions" element={<SessionSettings />} />
+
+
+          <Route path="system/settings" element={<Settings />} />
+          <Route path="system/pricing" element={<BillsPricing />} />
+          <Route path="system/gateway" element={<PaymentGateways />} />
         </Route>
       </Route>
 

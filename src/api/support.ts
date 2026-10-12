@@ -1,46 +1,82 @@
 import { apiClient } from "@/lib/axios";
 
+export interface TicketUser {
+  id: number | null;
+  name: string;
+  email: string;
+}
+
 export interface TicketMessage {
   id: string;
   sender: "user" | "admin";
   senderName: string;
   body: string;
   time: string;
+  created_at?: string;
 }
 
-export interface SupportTicketItem {
+export interface AdminSupportTicketItem {
   id: string;
   ticket_no: string;
+  user: TicketUser;
   subject: string;
   category: string;
-  status: "Open" | "Pending" | "Resolved" | "Closed";
-  priority: "Low" | "Medium" | "High" | "Urgent";
+  status: "Open" | "In Progress" | "Answered" | "Resolved" | "Closed";
+  priority: string;
   createdAt: string;
   lastUpdate: string;
   messages?: TicketMessage[];
 }
 
-export async function fetchSupportTickets(): Promise<{ status: boolean; data: SupportTicketItem[] }> {
-  const res = await apiClient.get("/vservices/support/tickets");
+/**
+ * Fetch all customer support tickets for admin
+ */
+export async function fetchAdminSupportTickets(params?: {
+  status?: string;
+  search?: string;
+}): Promise<{ status: boolean; message: string; data: AdminSupportTicketItem[] }> {
+  const res = await apiClient.get("/support/tickets", { params });
   return res.data;
 }
 
-export async function createSupportTicket(subject: string, category: string, message: string): Promise<{ status: boolean; message: string; data: SupportTicketItem }> {
-  const res = await apiClient.post("/vservices/support/tickets", { subject, category, message });
+/**
+ * Fetch details and thread for a single ticket
+ */
+export async function fetchAdminTicketDetails(
+  id: string
+): Promise<{ status: boolean; data: AdminSupportTicketItem }> {
+  const res = await apiClient.get(`/support/tickets/${id}`);
   return res.data;
 }
 
-export async function fetchTicketDetails(id: string): Promise<{ status: boolean; data: SupportTicketItem }> {
-  const res = await apiClient.get(`/vservices/support/tickets/${id}`);
+/**
+ * Admin reply to a support ticket
+ */
+export async function sendAdminTicketReply(
+  id: string,
+  message: string
+): Promise<{ status: boolean; message: string; data: TicketMessage }> {
+  const res = await apiClient.post(`/support/tickets/${id}/reply`, { message });
   return res.data;
 }
 
-export async function sendTicketReply(id: string, message: string): Promise<{ status: boolean; message: string; data: TicketMessage }> {
-  const res = await apiClient.post(`/vservices/support/tickets/${id}/reply`, { message });
+/**
+ * Update support ticket status
+ */
+export async function updateAdminTicketStatus(
+  id: string,
+  status: string
+): Promise<{ status: boolean; message: string }> {
+  const res = await apiClient.patch(`/support/tickets/${id}/status`, { status });
   return res.data;
 }
 
-export async function markTicketAsResolved(id: string): Promise<{ status: boolean; message: string }> {
-  const res = await apiClient.post(`/vservices/support/tickets/${id}/resolve`);
+/**
+ * Mark ticket as resolved
+ */
+export async function markAdminTicketAsResolved(
+  id: string
+): Promise<{ status: boolean; message: string }> {
+  const res = await apiClient.patch(`/support/tickets/${id}/resolve`);
   return res.data;
 }

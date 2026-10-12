@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Wallet, X, LogOut } from "lucide-react";
 import clsx from "clsx";
-import { primaryNav, secondaryNav, tertiaryNav, wallettNav, transactionyNav, footerNav } from "./navConfig";
+import { primaryNav, secondaryNav, tertiaryNav, wallettNav,digitalAssetNav,customerNav, transactionyNav, footerNav } from "./navConfig";
 import { useAuth } from "@/context/AuthContext";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
@@ -61,6 +61,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
           Wallet
         </p>
         {wallettNav.map((item) => (
+          <NavLink key={item.path} to={item.path} className={linkClasses} onClick={onCloseMobile}>
+            <span className="flex items-center gap-3">
+              <item.icon size={18} />
+              {item.label}
+            </span>
+          </NavLink>
+        ))}
+
+
+        <p className="px-3.5 pb-1 pt-5 text-[10px] font-bold uppercase tracking-wider text-white/30">
+          Customer Management
+        </p>
+        {customerNav.map((item) => (
+          <NavLink key={item.path} to={item.path} className={linkClasses} onClick={onCloseMobile}>
+            <span className="flex items-center gap-3">
+              <item.icon size={18} />
+              {item.label}
+            </span>
+          </NavLink>
+        ))}
+
+
+        <p className="px-3.5 pb-1 pt-5 text-[10px] font-bold uppercase tracking-wider text-white/30">
+          Digital Assets
+        </p>
+        {digitalAssetNav.map((item) => (
           <NavLink key={item.path} to={item.path} className={linkClasses} onClick={onCloseMobile}>
             <span className="flex items-center gap-3">
               <item.icon size={18} />
