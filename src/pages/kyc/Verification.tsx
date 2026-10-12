@@ -1,564 +1,579 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/Badge";
+import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { useToast } from "@/context/ToastContext";
+import { fetchKycHistory, approveKyc, rejectKyc, KycSubmission } from "@/api/kyc";
+import { cn, getImageSrc } from "@/lib/utils";
 import {
-  BadgeCheck,
-  FileText,
-  UploadCloud,
-  Camera,
+  ShieldCheck,
   CheckCircle2,
   Clock,
-  XCircle,
+  AlertCircle,
+  Search,
   Loader2,
-  RefreshCw,
-  ShieldAlert,
+  Eye,
+  Check,
+  X,
+  FileText,
+  User,
+  ExternalLink,
+  ImageIcon,
 } from "lucide-react";
-import { useToast } from "@/context/ToastContext";
-import {
-  getKycStatus,
-  submitLevelOne,
-  submitLevelTwo,
-  submitLevelThree,
-  KycStatusResponse,
-} from "@/api/kyc";
 
-export const Verification: React.FC = () => {
+export const KycVerification: React.FC = () => {
   const { push } = useToast();
 
+  const [submissions, setSubmissions] = useState<KycSubmission[]>([]);
+  const [metrics, setMetrics] = useState({
+    total_submissions: 0,
+    pending_count: 0,
+    approved_count: 0,
+    rejected_count: 0,
+  });
   const [loading, setLoading] = useState<boolean>(true);
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [kycData, setKycData] = useState<KycStatusResponse["data"] | null>(null);
-  const [activeStep, setActiveStep] = useState<number>(1);
 
-  // Level 1 State
-  const [idType, setIdType] = useState<string>("passport");
-  const [idNumber, setIdNumber] = useState<string>("");
-  const [idFrontFile, setIdFrontFile] = useState<File | null>(null);
-  const [idBackFile, setIdBackFile] = useState<File | null>(null);
+  // Filters
+  const [search, setSearch] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [levelFilter, setLevelFilter] = useState<string>("");
 
-  // Level 2 State
-  const [addressType, setAddressType] = useState<string>("utility_bill");
-  const [utilityBillType, setUtilityBillType] = useState<string>("Electricity");
-  const [addressFile, setAddressFile] = useState<File | null>(null);
-
-  // Level 3 State (Liveness Camera)
-  const [cameraActive, setCameraActive] = useState<boolean>(false);
-  const [capturedSelfie, setCapturedSelfie] = useState<string | null>(null);
-  const [livenessBlob, setLivenessBlob] = useState<Blob | null>(null);
-
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  // Modals & Inspection Drawer
+  const [selectedSub, setSelectedSub] = useState<KycSubmission | null>(null);
+  const [approveModalOpen, setApproveModalOpen] = useState<boolean>(false);
+  const [rejectModalOpen, setRejectModalOpen] = useState<boolean>(false);
+  const [selectedLevel, setSelectedLevel] = useState<number | undefined>(undefined);
+  const [rejectionReason, setRejectionReason] = useState<string>("");
+  const [submittingAction, setSubmittingAction] = useState<boolean>(false);
 
   useEffect(() => {
-    fetchKycData();
-  }, []);
+    loadKycSubmissions();
+  }, [search, statusFilter, levelFilter]);
 
-  const fetchKycData = async () => {
+  const loadKycSubmissions = async () => {
     try {
       setLoading(true);
-      const res = await getKycStatus();
+      const res = await fetchKycHistory({
+        search: search || undefined,
+        status: statusFilter || undefined,
+        level: levelFilter ? Number(levelFilter) : undefined,
+        per_page: 20,
+      });
+
       if (res.status && res.data) {
-        setKycData(res.data);
-        determineActiveStep(res.data);
+        const subData = res.data.submissions;
+        const rows = Array.isArray(subData) ? subData : subData?.data || [];
+        setSubmissions(rows);
+        if (res.data.metrics) {
+          setMetrics(res.data.metrics);
+        }
       }
-    } catch (error: any) {
-      push("Failed to load KYC verification data", "error");
+    } catch (err: any) {
+      push("Failed to load KYC verification history.", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const determineActiveStep = (data: KycStatusResponse["data"]) => {
-    if (data.level_1_status !== "approved") {
-      setActiveStep(1);
-    } else if (data.level_2_status !== "approved") {
-      setActiveStep(2);
-    } else if (data.level_3_status !== "approved") {
-      setActiveStep(3);
-    } else {
-      setActiveStep(4); // Fully Verified
-    }
-  };
-
-  // --- Camera Operations for Level 3 ---
-  const startCamera = async () => {
+  const handleApprove = async () => {
+    if (!selectedSub) return;
     try {
-      setCameraActive(true);
-      setCapturedSelfie(null);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false,
+      setSubmittingAction(true);
+      const res = await approveKyc({
+        kyc_id: selectedSub.id,
+        level: selectedLevel,
       });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      if (res.status) {
+        push(res.message || "KYC updated successfully!", "success");
+        setApproveModalOpen(false);
+        setSelectedSub(null);
+        loadKycSubmissions();
       }
-    } catch (err) {
-      push("Unable to access camera. Please allow camera permissions.", "error");
-      setCameraActive(false);
+    } catch (err: any) {
+      push(err?.response?.data?.message || "Failed to approve KYC.", "error");
+    } finally {
+      setSubmittingAction(false);
     }
   };
 
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
+  const handleReject = async () => {
+    if (!selectedSub) return;
+    if (!rejectionReason.trim()) {
+      push("Please provide a rejection reason.", "error");
+      return;
     }
-    setCameraActive(false);
-  };
 
-  const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/jpeg");
-        setCapturedSelfie(dataUrl);
-
-        canvas.toBlob((blob) => {
-          if (blob) setLivenessBlob(blob);
-        }, "image/jpeg", 0.9);
-
-        stopCamera();
+    try {
+      setSubmittingAction(true);
+      const res = await rejectKyc({
+        kyc_id: selectedSub.id,
+        level: selectedLevel,
+        rejection_reason: rejectionReason,
+      });
+      if (res.status) {
+        push(res.message || "KYC rejected successfully.", "success");
+        setRejectModalOpen(false);
+        setRejectionReason("");
+        setSelectedSub(null);
+        loadKycSubmissions();
       }
-    }
-  };
-
-  // --- Form Submissions ---
-  const handleLevelOneSubmit = async () => {
-    if (!idNumber) return push("Please enter your ID number", "error");
-    if (!idFrontFile) return push("Please upload the front of your ID card", "error");
-
-    const formData = new FormData();
-    formData.append("id_type", idType);
-    formData.append("id_number", idNumber);
-    formData.append("id_card_front", idFrontFile);
-    if (idBackFile) formData.append("id_card_back", idBackFile);
-
-    try {
-      setSubmitting(true);
-      const res = await submitLevelOne(formData);
-      push(res.message || "Level 1 details submitted!", "success");
-      await fetchKycData();
     } catch (err: any) {
-      push(err?.response?.data?.message || "Level 1 submission failed.", "error");
+      push(err?.response?.data?.message || "Failed to reject KYC.", "error");
     } finally {
-      setSubmitting(false);
+      setSubmittingAction(false);
     }
   };
 
-  const handleLevelTwoSubmit = async () => {
-    if (!addressFile) return push("Please upload your proof of address document", "error");
-
-    const formData = new FormData();
-    formData.append("address_type", addressType);
-    formData.append("utility_bill_type", utilityBillType);
-    formData.append("address_document", addressFile);
-
-    try {
-      setSubmitting(true);
-      const res = await submitLevelTwo(formData);
-      push(res.message || "Level 2 details submitted!", "success");
-      await fetchKycData();
-    } catch (err: any) {
-      push(err?.response?.data?.message || "Level 2 submission failed.", "error");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleLevelThreeSubmit = async () => {
-    if (!livenessBlob) return push("Please capture a live photo first", "error");
-
-    const file = new File([livenessBlob], "liveness_snapshot.jpg", { type: "image/jpeg" });
-    const formData = new FormData();
-    formData.append("liveness_photo", file);
-
-    try {
-      setSubmitting(true);
-      const res = await submitLevelThree(formData);
-      push(res.message || "Liveness photo submitted successfully!", "success");
-      await fetchKycData();
-    } catch (err: any) {
-      push(err?.response?.data?.message || "Liveness check submission failed.", "error");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const stepsList = [
-    { level: 1, title: "Government ID Upload", status: kycData?.level_1_status || "not_submitted" },
-    { level: 2, title: "Proof of Address", status: kycData?.level_2_status || "not_submitted" },
-    { level: 3, title: "Liveness Check", status: kycData?.level_3_status || "not_submitted" },
+  const columns: DataTableColumn<KycSubmission>[] = [
+    {
+      key: "user",
+      header: "User / Applicant",
+      exportValue: (s: any) => s.user?.name || "",
+      render: (s: any) => (
+        <div>
+          <p className="text-xs font-bold text-ink-900">{s.user?.name || "Unknown User"}</p>
+          <p className="text-[11px] text-ink-900/50">{s.user?.email || "N/A"}</p>
+        </div>
+      ),
+    },
+    {
+      key: "current_level",
+      header: "Current Tier",
+      exportValue: (s) => `Tier ${s.current_level}`,
+      render: (s) => (
+        <span className="font-semibold text-xs text-primary bg-primary/10 px-2 py-1 rounded-md">
+          Tier {s.current_level}
+        </span>
+      ),
+    },
+    {
+      key: "id_number",
+      header: "ID Number",
+      exportValue: (s) => s.id_number || "",
+      render: (s) => <span className="font-mono text-xs text-ink-900">{s.id_number || "N/A"}</span>,
+    },
+    {
+      key: "status",
+      header: "Overall Status",
+      exportValue: (s) => s.status,
+      render: (s) => <Badge status={s.status} />,
+    },
+    {
+      key: "updated_at",
+      header: "Last Updated",
+      exportValue: (s) => new Date(s.updated_at).toLocaleString(),
+      render: (s) => <span className="text-xs text-ink-900/60">{new Date(s.updated_at).toLocaleDateString()}</span>,
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      exportValue: () => "",
+      render: (s) => (
+        <button
+          onClick={() => setSelectedSub(s)}
+          className="btn-secondary py-1 px-2.5 text-xs flex items-center gap-1"
+        >
+          <Eye size={13} /> Inspect
+        </button>
+      ),
+    },
   ];
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-      {/* Left Main Form Box */}
-      <div className="card lg:col-span-2">
-        <div className="mb-6 flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-state-successbg text-state-success">
-            <BadgeCheck size={18} />
+    <div className="space-y-6 max-w-full overflow-x-hidden">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-surface-border pb-4">
+        <div>
+          <h3 className="font-bold text-ink-900 text-lg sm:text-xl flex items-center gap-2">
+            <ShieldCheck size={20} className="text-primary" /> KYC Verification Oversight
+          </h3>
+          <p className="text-xs sm:text-sm text-ink-900/55">
+            Audit user identity documents, review proof of address, and manage tiered approvals.
+          </p>
+        </div>
+      </div>
+
+      {/* KPI Metrics Summary Grid */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="card bg-surface-muted p-4 border border-surface-border flex items-center gap-4">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <FileText size={20} />
           </span>
           <div>
-            <h3 className="font-bold text-ink-900">Identity Verification</h3>
-            <p className="text-xs text-ink-900/50">Complete KYC to unlock higher transfer limits.</p>
+            <p className="text-xs text-ink-900/50 uppercase font-semibold">Total Submissions</p>
+            <p className="text-xl font-extrabold text-ink-900 mt-0.5">{metrics.total_submissions}</p>
           </div>
         </div>
+        <div className="card bg-surface-muted p-4 border border-surface-border flex items-center gap-4">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+            <Clock size={20} />
+          </span>
+          <div>
+            <p className="text-xs text-ink-900/50 uppercase font-semibold">Pending Review</p>
+            <p className="text-xl font-extrabold text-ink-900 mt-0.5">{metrics.pending_count}</p>
+          </div>
+        </div>
+        <div className="card bg-surface-muted p-4 border border-surface-border flex items-center gap-4">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-state-successbg text-state-success">
+            <CheckCircle2 size={20} />
+          </span>
+          <div>
+            <p className="text-xs text-ink-900/50 uppercase font-semibold">Approved</p>
+            <p className="text-xl font-extrabold text-ink-900 mt-0.5">{metrics.approved_count}</p>
+          </div>
+        </div>
+        <div className="card bg-surface-muted p-4 border border-surface-border flex items-center gap-4">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-state-failedbg text-state-failed">
+            <AlertCircle size={20} />
+          </span>
+          <div>
+            <p className="text-xs text-ink-900/50 uppercase font-semibold">Rejected</p>
+            <p className="text-xl font-extrabold text-ink-900 mt-0.5">{metrics.rejected_count}</p>
+          </div>
+        </div>
+      </div>
 
-        {/* Step Progression Indicators */}
-        <div className="mb-6 space-y-3">
-          {stepsList.map((s) => {
-            const isApproved = s.status === "approved";
-            const isPending = s.status === "pending";
-            const isRejected = s.status === "rejected";
-            const isActive = activeStep === s.level;
+      {/* Main Filter & Table Card */}
+      <div className="card p-4 sm:p-6 space-y-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-900/40" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search applicant name, email, ID..."
+              className="input-field pl-9 text-xs py-2.5"
+            />
+          </div>
 
-            return (
-              <div
-                key={s.level}
-                onClick={() => {
-                  if (s.level <= (kycData?.current_level || 0) + 1) {
-                    setActiveStep(s.level);
-                  }
-                }}
-                className={`flex items-center justify-between rounded-xl border p-3.5 transition-all ${
-                  isActive
-                    ? "border-primary bg-primary/5"
-                    : "border-surface-border"
-                } ${s.level <= (kycData?.current_level || 0) + 1 ? "cursor-pointer" : "opacity-60 cursor-not-allowed"}`}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="input-field text-xs capitalize py-2.5"
+          >
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+
+          <select
+            value={levelFilter}
+            onChange={(e) => setLevelFilter(e.target.value)}
+            className="input-field text-xs py-2.5"
+          >
+            <option value="">All Tiers (1, 2, 3)</option>
+            <option value="1">Tier 1</option>
+            <option value="2">Tier 2</option>
+            <option value="3">Tier 3</option>
+          </select>
+        </div>
+
+        {loading ? (
+          <div className="flex h-64 items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={submissions}
+            fileName="admin-kyc-history"
+            emptyLabel="No KYC submissions found matching your criteria."
+            pageSize={20}
+          />
+        )}
+      </div>
+
+      {/* KYC Inspection Side Drawer */}
+      {selectedSub && (
+        <div className="fixed inset-0 z-50 overflow-hidden bg-black/40 backdrop-blur-xs flex justify-end">
+          <div className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col justify-between transform transition-transform animate-in slide-in-from-right duration-300">
+            <div className="p-5 border-b border-surface-border flex items-center justify-between bg-surface-muted/50">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="text-primary" size={20} />
+                <h3 className="font-bold text-ink-900">KYC Inspection Panel</h3>
+              </div>
+              <button
+                onClick={() => setSelectedSub(null)}
+                className="rounded-lg p-1.5 text-ink-900/50 hover:bg-surface-border transition"
               >
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-                      isApproved
-                        ? "bg-state-success text-white"
-                        : isPending
-                        ? "bg-amber-500 text-white"
-                        : isRejected
-                        ? "bg-state-error text-white"
-                        : isActive
-                        ? "bg-primary text-white"
-                        : "bg-surface-muted text-ink-900/50"
-                    }`}
-                  >
-                    {isApproved ? "✓" : s.level}
-                  </span>
-                  <p className={`text-sm font-semibold ${isActive ? "text-primary" : "text-ink-900"}`}>
-                    Level {s.level}: {s.title}
-                  </p>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-sm">
+              {/* Applicant Info Header */}
+              <div className="rounded-xl bg-surface-muted p-4 border border-surface-border space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs uppercase font-semibold text-ink-900/50">Applicant</span>
+                  <Badge status={selectedSub.status} />
+                </div>
+                <p className="text-base font-bold text-ink-900">{selectedSub.user?.name || "N/A"}</p>
+                <p className="text-xs text-ink-900/60">{selectedSub.user?.email} | {selectedSub.user?.phone || "No phone"}</p>
+              </div>
+
+              {/* Rejection Reason (If any) */}
+              {selectedSub.rejection_reason && (
+                <div className="rounded-xl bg-state-failedbg p-4 border border-state-error/30 space-y-1">
+                  <p className="text-xs font-bold text-state-error uppercase">Rejection Reason</p>
+                  <p className="text-xs text-state-error">{selectedSub.rejection_reason}</p>
+                </div>
+              )}
+
+              {/* LEVEL 1 REVIEW */}
+              <div className="rounded-xl border border-surface-border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-ink-900 text-xs uppercase tracking-wider">Level 1: Government ID</h4>
+                  <Badge status={selectedSub.level_1_status as any} />
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><span className="text-ink-900/50">Type:</span> <span className="font-semibold uppercase">{selectedSub.id_type || "N/A"}</span></div>
+                  <div><span className="text-ink-900/50">Number:</span> <span className="font-mono font-semibold">{selectedSub.id_number || "N/A"}</span></div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {isApproved && (
-                    <span className="pill bg-state-successbg text-state-success text-[10px]">Approved</span>
+                {/* Document Previews using getImageSrc */}
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  {selectedSub.id_card_front && (
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-semibold text-ink-900/60">Front ID</p>
+                      <a href={getImageSrc(selectedSub.id_card_front)} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-surface-border hover:opacity-90 transition">
+                        <img src={getImageSrc(selectedSub.id_card_front)} alt="Front ID" className="h-24 w-full object-cover" />
+                      </a>
+                    </div>
                   )}
-                  {isPending && (
-                    <span className="pill bg-amber-500/10 text-amber-600 text-[10px]">Under Review</span>
-                  )}
-                  {isRejected && (
-                    <span className="pill bg-state-errorbg text-state-error text-[10px]">Rejected</span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* --- STEP 1: GOVERNMENT ID --- */}
-        {activeStep === 1 && (
-          <div className="space-y-4 rounded-xl border border-surface-border p-5">
-            <h4 className="font-semibold text-ink-900">Level 1: Government ID Document</h4>
-            
-            {kycData?.level_1_status === "approved" ? (
-              <div className="rounded-lg bg-state-successbg p-4 text-xs text-state-success font-semibold">
-                ✓ Level 1 verification has been approved!
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs font-medium text-ink-900/70">ID Type</label>
-                    <select
-                      value={idType}
-                      onChange={(e) => setIdType(e.target.value)}
-                      className="input-field mt-1 w-full"
-                    >
-                      <option value="passport">International Passport</option>
-                      <option value="national_id">National ID Card</option>
-                      <option value="drivers_license">Driver's License</option>
-                      <option value="voters_card">Voter's Card</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-ink-900/70">ID Number</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. A00123456"
-                      value={idNumber}
-                      onChange={(e) => setIdNumber(e.target.value)}
-                      className="input-field mt-1 w-full"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="rounded-xl border-2 border-dashed border-surface-border p-4 text-center">
-                    <UploadCloud size={24} className="mx-auto mb-2 text-ink-900/40" />
-                    <p className="text-xs font-semibold text-ink-900">Front of ID Document</p>
-                    <label className="btn-secondary mt-2 inline-flex cursor-pointer text-xs">
-                      Choose File
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => setIdFrontFile(e.target.files?.[0] || null)}
-                      />
-                    </label>
-                    {idFrontFile && <p className="mt-2 text-[11px] text-ink-900/70 truncate">{idFrontFile.name}</p>}
-                  </div>
-
-                  <div className="rounded-xl border-2 border-dashed border-surface-border p-4 text-center">
-                    <UploadCloud size={24} className="mx-auto mb-2 text-ink-900/40" />
-                    <p className="text-xs font-semibold text-ink-900">Back of ID Document (Optional)</p>
-                    <label className="btn-secondary mt-2 inline-flex cursor-pointer text-xs">
-                      Choose File
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => setIdBackFile(e.target.files?.[0] || null)}
-                      />
-                    </label>
-                    {idBackFile && <p className="mt-2 text-[11px] text-ink-900/70 truncate">{idBackFile.name}</p>}
-                  </div>
-                </div>
-
-                <button
-                  disabled={submitting || kycData?.level_1_status === "pending"}
-                  onClick={handleLevelOneSubmit}
-                  className="btn-primary w-full flex items-center justify-center gap-2"
-                >
-                  {submitting && <Loader2 size={16} className="animate-spin" />}
-                  {kycData?.level_1_status === "pending" ? "Level 1 Under Review" : "Submit Level 1 ID"}
-                </button>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* --- STEP 2: PROOF OF ADDRESS --- */}
-        {activeStep === 2 && (
-          <div className="space-y-4 rounded-xl border border-surface-border p-5">
-            <h4 className="font-semibold text-ink-900">Level 2: Proof of Address Document</h4>
-
-            {kycData?.level_1_status !== "approved" ? (
-              <div className="rounded-lg bg-amber-500/10 p-4 text-xs text-amber-700 flex items-center gap-2">
-                <ShieldAlert size={16} /> Complete and obtain approval for Level 1 before proceeding to Level 2.
-              </div>
-            ) : kycData?.level_2_status === "approved" ? (
-              <div className="rounded-lg bg-state-successbg p-4 text-xs text-state-success font-semibold">
-                ✓ Level 2 proof of address has been approved!
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs font-medium text-ink-900/70">Document Type</label>
-                    <select
-                      value={addressType}
-                      onChange={(e) => setAddressType(e.target.value)}
-                      className="input-field mt-1 w-full"
-                    >
-                      <option value="utility_bill">Utility Bill</option>
-                      <option value="bank_statement">Bank Statement</option>
-                      <option value="tenancy_agreement">Tenancy Agreement</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-ink-900/70">Bill / Statement Details</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Electricity, Water, Bank Name"
-                      value={utilityBillType}
-                      onChange={(e) => setUtilityBillType(e.target.value)}
-                      className="input-field mt-1 w-full"
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-xl border-2 border-dashed border-surface-border p-6 text-center">
-                  <UploadCloud size={28} className="mx-auto mb-2 text-ink-900/40" />
-                  <p className="text-xs font-semibold text-ink-900">Upload Document File (PDF or Image)</p>
-                  <p className="text-[11px] text-ink-900/50 mt-1 mb-3">Issued within the last 3 months</p>
-                  <label className="btn-secondary inline-flex cursor-pointer text-xs">
-                    <FileText size={14} className="mr-1" /> Choose File
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      className="hidden"
-                      onChange={(e) => setAddressFile(e.target.files?.[0] || null)}
-                    />
-                  </label>
-                  {addressFile && <p className="mt-2 text-xs font-semibold text-ink-900">{addressFile.name}</p>}
-                </div>
-
-                <button
-                  disabled={submitting || kycData?.level_2_status === "pending"}
-                  onClick={handleLevelTwoSubmit}
-                  className="btn-primary w-full flex items-center justify-center gap-2"
-                >
-                  {submitting && <Loader2 size={16} className="animate-spin" />}
-                  {kycData?.level_2_status === "pending" ? "Level 2 Under Review" : "Submit Proof of Address"}
-                </button>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* --- STEP 3: LIVENESS CHECK (SYSTEM CAMERA) --- */}
-        {activeStep === 3 && (
-          <div className="space-y-4 rounded-xl border border-surface-border p-5">
-            <h4 className="font-semibold text-ink-900">Level 3: Liveness Check Snapshot</h4>
-
-            {kycData?.level_2_status !== "approved" ? (
-              <div className="rounded-lg bg-amber-500/10 p-4 text-xs text-amber-700 flex items-center gap-2">
-                <ShieldAlert size={16} /> Complete and obtain approval for Level 2 before completing the Liveness Check.
-              </div>
-            ) : kycData?.level_3_status === "approved" ? (
-              <div className="rounded-lg bg-state-successbg p-4 text-xs text-state-success font-semibold">
-                ✓ Level 3 Liveness check has been approved!
-              </div>
-            ) : (
-              <>
-                <p className="text-xs text-ink-900/60">
-                  Please align your face in the camera view below and snap a clear photo.
-                </p>
-
-                <div className="relative flex flex-col items-center justify-center overflow-hidden rounded-xl bg-black min-h-[260px]">
-                  {/* Realtime Video Stream */}
-                  {cameraActive && (
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      className="h-64 w-full object-cover"
-                    />
-                  )}
-
-                  {/* Canvas for snapshot generation */}
-                  <canvas ref={canvasRef} className="hidden" />
-
-                  {/* Captured Photo Preview */}
-                  {capturedSelfie && !cameraActive && (
-                    <img
-                      src={capturedSelfie}
-                      alt="Selfie snapshot"
-                      className="h-64 w-full object-cover"
-                    />
-                  )}
-
-                  {!cameraActive && !capturedSelfie && (
-                    <div className="text-center p-6 text-white/70">
-                      <Camera size={36} className="mx-auto mb-2 text-white/50" />
-                      <p className="text-xs">Camera is offline</p>
+                  {selectedSub.id_card_back && (
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-semibold text-ink-900/60">Back ID</p>
+                      <a href={getImageSrc(selectedSub.id_card_back)} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-surface-border hover:opacity-90 transition">
+                        <img src={getImageSrc(selectedSub.id_card_back)} alt="Back ID" className="h-24 w-full object-cover" />
+                      </a>
                     </div>
                   )}
                 </div>
 
-                <div className="flex gap-2">
-                  {!cameraActive && !capturedSelfie && (
-                    <button onClick={startCamera} className="btn-secondary w-full flex items-center justify-center gap-2">
-                      <Camera size={16} /> Open Camera
-                    </button>
-                  )}
+                <div className="flex gap-2 pt-3 border-t border-surface-border">
+                  <button
+                    onClick={() => {
+                      setSelectedLevel(1);
+                      setApproveModalOpen(true);
+                    }}
+                    className="btn-secondary py-1 px-2.5 text-xs text-state-success border-state-success/30 hover:bg-state-successbg"
+                  >
+                    Approve Level 1
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedLevel(1);
+                      setRejectModalOpen(true);
+                    }}
+                    className="btn-secondary py-1 px-2.5 text-xs text-state-error border-state-error/30 hover:bg-state-failedbg"
+                  >
+                    Reject Level 1
+                  </button>
+                </div>
+              </div>
 
-                  {cameraActive && (
-                    <button onClick={capturePhoto} className="btn-primary w-full flex items-center justify-center gap-2">
-                      <Camera size={16} /> Snap Photo
-                    </button>
-                  )}
-
-                  {capturedSelfie && !cameraActive && (
-                    <button onClick={startCamera} className="btn-secondary w-full flex items-center justify-center gap-2">
-                      <RefreshCw size={16} /> Retake Snapshot
-                    </button>
-                  )}
+              {/* LEVEL 2 REVIEW */}
+              <div className="rounded-xl border border-surface-border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-ink-900 text-xs uppercase tracking-wider">Level 2: Proof of Address</h4>
+                  <Badge status={selectedSub.level_2_status as any} />
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><span className="text-ink-900/50">Type:</span> <span className="font-semibold uppercase">{selectedSub.address_type || "N/A"}</span></div>
+                  <div><span className="text-ink-900/50">Utility:</span> <span className="font-semibold">{selectedSub.utility_bill_type || "N/A"}</span></div>
                 </div>
 
-                <button
-                  disabled={submitting || !capturedSelfie || kycData?.level_3_status === "pending"}
-                  onClick={handleLevelThreeSubmit}
-                  className="btn-primary w-full flex items-center justify-center gap-2"
-                >
-                  {submitting && <Loader2 size={16} className="animate-spin" />}
-                  {kycData?.level_3_status === "pending" ? "Level 3 Under Review" : "Submit Liveness Check"}
-                </button>
-              </>
-            )}
+                {selectedSub.address_document && (
+                  <div className="pt-2">
+                    <p className="text-[11px] font-semibold text-ink-900/60 mb-1">Address Document</p>
+                    <a href={getImageSrc(selectedSub.address_document)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 btn-secondary text-xs py-1.5 px-3">
+                      <ExternalLink size={12} /> View Document File
+                    </a>
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-3 border-t border-surface-border">
+                  <button
+                    onClick={() => {
+                      setSelectedLevel(2);
+                      setApproveModalOpen(true);
+                    }}
+                    className="btn-secondary py-1 px-2.5 text-xs text-state-success border-state-success/30 hover:bg-state-successbg"
+                  >
+                    Approve Level 2
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedLevel(2);
+                      setRejectModalOpen(true);
+                    }}
+                    className="btn-secondary py-1 px-2.5 text-xs text-state-error border-state-error/30 hover:bg-state-failedbg"
+                  >
+                    Reject Level 2
+                  </button>
+                </div>
+              </div>
+
+              {/* LEVEL 3 REVIEW */}
+              <div className="rounded-xl border border-surface-border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-ink-900 text-xs uppercase tracking-wider">Level 3: Liveness Check</h4>
+                  <Badge status={selectedSub.level_3_status as any} />
+                </div>
+
+                {selectedSub.liveness_photo && (
+                  <div className="pt-2 flex items-center gap-4">
+                    <div className="overflow-hidden rounded-xl border border-surface-border">
+                      <img
+                        src={getImageSrc(selectedSub.liveness_photo)}
+                        alt="Liveness Selfie"
+                        className="h-20 w-20 object-cover"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-ink-900">Biometric Snapshot</p>
+                      <a href={getImageSrc(selectedSub.liveness_photo)} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 mt-1">
+                        <ExternalLink size={12} /> Open Full Image
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-3 border-t border-surface-border">
+                  <button
+                    onClick={() => {
+                      setSelectedLevel(3);
+                      setApproveModalOpen(true);
+                    }}
+                    className="btn-secondary py-1 px-2.5 text-xs text-state-success border-state-success/30 hover:bg-state-successbg"
+                  >
+                    Approve Level 3
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedLevel(3);
+                      setRejectModalOpen(true);
+                    }}
+                    className="btn-secondary py-1 px-2.5 text-xs text-state-error border-state-error/30 hover:bg-state-failedbg"
+                  >
+                    Reject Level 3
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-surface-border bg-surface-muted/50 flex gap-3">
+              <button
+                onClick={() => {
+                  setSelectedLevel(undefined);
+                  setApproveModalOpen(true);
+                }}
+                className="btn-primary flex-1 py-2.5 text-xs"
+              >
+                Approve Overall KYC
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedLevel(undefined);
+                  setRejectModalOpen(true);
+                }}
+                className="btn-secondary flex-1 py-2.5 text-xs text-state-error border-state-error/30 hover:bg-state-failedbg"
+              >
+                Reject Overall KYC
+              </button>
+            </div>
           </div>
-        )}
-      </div>
-
-      {/* Right Verification Overview Card */}
-      <div className="card h-fit">
-        <h3 className="mb-3 font-bold text-ink-900">Verification Status</h3>
-
-        <div
-          className={`rounded-xl p-4 ${
-            kycData?.current_level === 3
-              ? "bg-state-successbg text-state-success"
-              : kycData?.current_level === 2
-              ? "bg-blue-500/10 text-blue-600"
-              : kycData?.current_level === 1
-              ? "bg-amber-500/10 text-amber-600"
-              : "bg-surface-muted text-ink-900/70"
-          }`}
-        >
-          <p className="text-sm font-bold">Tier {kycData?.current_level || 0} Verified</p>
-          <p className="mt-1 text-xs opacity-80">
-            {kycData?.current_level === 3
-              ? "Daily transfer limit: Unlimited"
-              : kycData?.current_level === 2
-              ? "Daily transfer limit: ₦200,000,000"
-              : kycData?.current_level === 1
-              ? "Daily transfer limit: ₦5,000,000"
-              : "Daily transfer limit: ₦50,000"}
-          </p>
         </div>
+      )}
 
-        <div className="mt-4 space-y-3 text-xs">
-          <div className="flex justify-between border-b border-surface-border pb-2">
-            <span className="text-ink-900/50">Overall Status</span>
-            <span className="font-semibold capitalize text-ink-900">{kycData?.status || "Pending"}</span>
-          </div>
-          <div className="flex justify-between border-b border-surface-border pb-2">
-            <span className="text-ink-900/50">Level 1 (ID)</span>
-            <span className="font-semibold capitalize text-ink-900">{kycData?.level_1_status || "Not Submitted"}</span>
-          </div>
-          <div className="flex justify-between border-b border-surface-border pb-2">
-            <span className="text-ink-900/50">Level 2 (Address)</span>
-            <span className="font-semibold capitalize text-ink-900">{kycData?.level_2_status || "Not Submitted"}</span>
-          </div>
-          <div className="flex justify-between border-b border-surface-border pb-2">
-            <span className="text-ink-900/50">Level 3 (Liveness)</span>
-            <span className="font-semibold capitalize text-ink-900">{kycData?.level_3_status || "Not Submitted"}</span>
+      {/* --- APPROVAL CONFIRMATION MODAL --- */}
+      {approveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-state-successbg text-state-success">
+                <Check size={20} />
+              </span>
+              <div>
+                <h3 className="font-bold text-ink-900 text-lg">
+                  {selectedLevel ? `Approve Level ${selectedLevel}?` : "Approve Overall KYC?"}
+                </h3>
+                <p className="text-xs text-ink-900/50">This will update verification access for the user.</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setApproveModalOpen(false)}
+                className="btn-secondary flex-1 py-2.5 text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={submittingAction}
+                onClick={handleApprove}
+                className="btn-primary flex-1 py-2.5 text-xs flex items-center justify-center gap-2"
+              >
+                {submittingAction && <Loader2 size={14} className="animate-spin" />}
+                Confirm Approval
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* --- REJECTION MODAL WITH REASON --- */}
+      {rejectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-state-failedbg text-state-error">
+                <X size={20} />
+              </span>
+              <div>
+                <h3 className="font-bold text-ink-900 text-lg">
+                  {selectedLevel ? `Reject Level ${selectedLevel}?` : "Reject Overall KYC?"}
+                </h3>
+                <p className="text-xs text-ink-900/50">Please provide a reason for rejection.</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-ink-900/70">Reason for Rejection</label>
+              <textarea
+                rows={3}
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="e.g. Document is blurry or expired."
+                className="input-field mt-1 w-full text-xs"
+                required
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setRejectModalOpen(false)}
+                className="btn-secondary flex-1 py-2.5 text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={submittingAction}
+                onClick={handleReject}
+                className="btn-primary flex-1 py-2.5 text-xs bg-state-error hover:bg-state-error/90 text-white flex items-center justify-center gap-2"
+              >
+                {submittingAction && <Loader2 size={14} className="animate-spin" />}
+                Confirm Rejection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

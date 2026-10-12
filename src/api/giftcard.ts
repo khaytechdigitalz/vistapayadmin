@@ -32,6 +32,7 @@ export interface GiftcardTrade {
   admin_notes?: string;
   created_at: string;
   updated_at: string;
+  adminNotes: string;
   giftcard?: Giftcard;
   user?: {
     id: number;

@@ -31,7 +31,7 @@ import { GiftcardTrades } from "@/pages/giftcards/GiftcardTradesHistory";
 import { Analytics } from "@/pages/Analytics";
 import { SupportTicketPage } from "@/pages/SupportTicket";
 import { SupportTicketDetail } from "@/pages/SupportTicketDetail";
-import { Verification } from "@/pages/kyc/Verification";
+import { KycVerification } from "@/pages/kyc/Verification";
 import { GetHelp } from "@/pages/GetHelp";
 
 import { BillsPayment } from "@/pages/bills/BillsPayment"; 
@@ -94,7 +94,7 @@ const App: React.FC = () => {
           <Route path="analytics" element={<Analytics />} />
           <Route path="support" element={<SupportTicketPage />} />
           <Route path="support/:id" element={<SupportTicketDetail />} />
-          <Route path="verification" element={<Verification />} />
+          <Route path="verification" element={<KycVerification />} />
           <Route path="get-help" element={<GetHelp />} />
 
           <Route path="settings/account" element={<AccountSettings />} />
