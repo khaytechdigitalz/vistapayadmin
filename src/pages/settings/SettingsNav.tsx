@@ -7,8 +7,6 @@ const items = [
   { label: "Account", path: "/app/settings/account", icon: Settings },
   { label: "Security", path: "/app/settings/security", icon: ShieldCheck },
   { label: "Login Sessions", path: "/app/settings/sessions", icon: Lock },
-  { label: "API Keys", path: "/app/settings/api", icon: KeyRound },
-  { label: "Verification", path: "/app/verification", icon: BadgeCheck },
 ];
 
 export const SettingsNav: React.FC = () => {

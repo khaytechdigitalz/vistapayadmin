@@ -42,7 +42,6 @@ import { CardDetail } from "@/pages/cards/CardDetail";
 import { AccountSettings } from "@/pages/settings/AccountSettings";
 import { SecuritySettings } from "@/pages/settings/SecuritySettings";
 import { SessionSettings } from "@/pages/settings/SessionSettings";
-import { ApiSettings } from "@/pages/settings/ApiSettings";
 
 import { NotFound } from "@/pages/NotFound";
 
@@ -100,7 +99,6 @@ const App: React.FC = () => {
           <Route path="settings/account" element={<AccountSettings />} />
           <Route path="settings/security" element={<SecuritySettings />} />
           <Route path="settings/sessions" element={<SessionSettings />} />
-          <Route path="settings/api" element={<ApiSettings />} />
         </Route>
       </Route>
 
