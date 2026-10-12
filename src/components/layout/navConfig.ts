@@ -29,16 +29,21 @@ export interface NavItem {
 
 export const primaryNav: NavItem[] = [
   { label: "Dashboard", path: "/app/dashboard", icon: LayoutDashboard },
+  { label: "Analytics", path: "/app/analytics", icon: BarChart3 },
+];
+
+export const wallettNav: NavItem[] = [
   { label: "Bank Transfers", path: "/app/bank/transfer", icon: Landmark },
   { label: "P2P Transfers", path: "/app/p2p/transfer", icon: ArrowLeftRight },
   { label: "Deposits", path: "/app/deposit", icon: Wallet },
   { label: "Payment Link", path: "/app/paymentlink", icon: Link },
   { label: "Giftcards ", path: "/app/giftcards", icon: GiftIcon },
   { label: "Virtual Cards", path: "/app/cards", icon: CreditCard },
+];
+export const transactionyNav: NavItem[] = [
   { label: "Transactions", path: "/app/transactions", icon: History },
   { label: "Bills Payment", path: "/app/bills", icon: Receipt },
   { label: "Invoices", path: "/app/invoices", icon: FileText },
-  { label: "Analytics", path: "/app/analytics", icon: BarChart3 },
 ];
 
 export const secondaryNav: NavItem[] = [
