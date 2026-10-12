@@ -44,8 +44,6 @@ export const primaryNav: NavItem[] = [
 export const secondaryNav: NavItem[] = [
   { label: "Account Settings", path: "/app/settings/account", icon: User },
   { label: "Security Settings", path: "/app/settings/security", icon: ShieldCheck },
-  { label: "API Settings", path: "/app/settings/api", icon: KeyRound },
-  { label: "Identity Verification", path: "/app/verification", icon: BadgeCheck },
 ];
 
 export const tertiaryNav: NavItem[] = [
@@ -53,5 +51,6 @@ export const tertiaryNav: NavItem[] = [
 ];
 
 export const footerNav: NavItem[] = [
+{ label: "Identity Verification", path: "/app/verification", icon: BadgeCheck },
   { label: "Support Ticket", path: "/app/support", icon: LifeBuoy },
 ];
