@@ -1,0 +1,173 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: 14 59 57;
+  --color-primary-dark: 8 39 37;
+  --color-primary-light: 158 190 188;
+  --color-secondary: 215 254 99;
+  --color-secondary-dark: 176 220 62;
+  --color-secondary-light: 236 253 199;
+
+  /* Neutral chrome tokens — fixed, independent of the chosen brand preset,
+     so the app always has a consistent, legible light/dark shell. */
+  --chart-grid: #E7ECEB;
+  --chart-tick: rgba(10, 46, 44, 0.55);
+  --chart-tooltip-bg: #FFFFFF;
+  --chart-tooltip-border: #E7ECEB;
+  --chart-tooltip-text: #0A2E2C;
+  --chart-muted-bar: #E7ECEB;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-surface-muted text-ink-900 font-sans transition-colors duration-200;
+  }
+  ::selection {
+    @apply bg-secondary/60;
+  }
+  *:focus-visible {
+    outline: 2px solid rgb(var(--color-primary));
+    outline-offset: 2px;
+  }
+}
+
+/* =========================================================================
+   Dark mode
+   Tailwind utilities are generated with low specificity; a two-class
+   `.dark .utility` selector wins by source order + specificity without
+   !important. Two separate concerns are handled here:
+
+   1. Neutral surfaces (page/card/input/border/text) flip from light to dark
+      using fixed tones — independent of the user's chosen brand preset, so
+      the shell always looks intentional regardless of which primary/
+      secondary colors are active.
+   2. "Primary" is the user's brand chrome color (sidebar, solid buttons) and
+      is often a very dark tone by design. On a dark page/card that is
+      *also* dark, plain primary-on-dark can lose contrast — so anywhere
+      primary is used as a foreground accent (text/border/subtle tint) in
+      dark mode, it hands off to the brand's secondary (always a bright
+      accent) instead. Solid primary *backgrounds* keep their color but gain
+      a faint inset ring so they stay visually separated from dark chrome.
+   ========================================================================= */
+
+.dark {
+  --chart-grid: #1C4441;
+  --chart-tick: rgba(233, 239, 238, 0.5);
+  --chart-tooltip-bg: #0F2C2A;
+  --chart-tooltip-border: #1C4441;
+  --chart-tooltip-text: #E9EFEE;
+  --chart-muted-bar: #244846;
+}
+
+.dark body {
+  background-color: #081513;
+  color: #E9EFEE;
+}
+.dark .card,
+.dark .bg-white {
+  background-color: #0F2C2A;
+  border-color: #1C4441;
+}
+.dark .input-field {
+  background-color: #0B221F;
+  border-color: #1C4441;
+  color: #E9EFEE;
+}
+.dark .input-field::placeholder {
+  color: rgba(233, 239, 238, 0.35);
+}
+.dark .bg-surface-muted {
+  background-color: #0B221F;
+}
+.dark .border-surface-border {
+  border-color: #1C4441;
+}
+.dark .text-ink-900,
+.dark .text-ink-800,
+.dark .text-ink-700 {
+  color: #E9EFEE;
+}
+.dark .text-ink-900\/25 { color: rgba(233, 239, 238, 0.25); }
+.dark .text-ink-900\/40 { color: rgba(233, 239, 238, 0.4); }
+.dark .text-ink-900\/50 { color: rgba(233, 239, 238, 0.5); }
+.dark .text-ink-900\/60 { color: rgba(233, 239, 238, 0.62); }
+.dark .text-ink-900\/70 { color: rgba(233, 239, 238, 0.75); }
+.dark .shadow-card {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+}
+.dark ::selection {
+  background-color: rgba(var(--color-secondary), 0.35);
+}
+
+/* Brand-color handoff: primary → secondary for foreground/accent use so
+   icons, links and focus states stay visible even when the chosen primary
+   preset is a very dark tone. */
+.dark .text-primary {
+  color: rgb(var(--color-secondary));
+}
+.dark .border-primary {
+  border-color: rgb(var(--color-secondary));
+}
+.dark .widget-primary {
+  background-color: rgba(var(--color-secondary), 0.07);
+  border-color: rgba(var(--color-secondary), 0.22);
+}
+.dark .link-accent {
+  color: rgb(var(--color-secondary));
+}
+
+/* Solid primary-background elements (sidebar, filled buttons, badges) keep
+   their brand color but gain a faint inner edge so they never visually
+   merge into the dark chrome behind them. */
+.dark .bg-primary {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* Translucent header / floating nav backgrounds */
+.surface-translucent {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+.dark .surface-translucent {
+  background-color: rgba(15, 44, 42, 0.92);
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-secondary px-5 py-3 text-sm font-bold text-primary-dark transition hover:bg-secondary-dark disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-surface-border bg-white px-5 py-3 text-sm font-semibold text-ink-800 transition hover:bg-surface-muted;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-ink-700 transition hover:bg-surface-muted;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-state-failed px-5 py-3 text-sm font-bold text-white transition hover:opacity-90;
+  }
+  .input-field {
+    @apply w-full rounded-xl border border-surface-border bg-white px-4 py-3 text-sm text-ink-900 placeholder:text-ink-900/40 outline-none transition focus:border-primary;
+  }
+  .card {
+    @apply rounded-xl2 border border-surface-border bg-white p-6 shadow-card;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-semibold text-ink-900/60;
+  }
+  .pill {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold;
+  }
+  .widget-primary {
+    @apply bg-primary-50 border border-primary/10;
+  }
+  .widget-secondary {
+    @apply bg-secondary-50 border border-secondary/20;
+  }
+  .link-accent {
+    @apply text-primary font-bold hover:underline;
+  }
+}
