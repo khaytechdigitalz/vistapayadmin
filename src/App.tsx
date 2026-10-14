@@ -11,6 +11,7 @@ import { OtpVerification } from "@/pages/auth/OtpVerification";
 import { ResetPassword } from "@/pages/auth/ResetPassword";
 
 import { Dashboard } from "@/pages/Dashboard";
+import { AdminEarningsPage } from "@/pages/AdminEarningsPage";
 import { BankTransfer } from "@/pages/transfer/BankTransfer";
 import { UserTransfer } from "./pages/transfer/UserTransfer";
 
@@ -71,6 +72,8 @@ const App: React.FC = () => {
         <Route path="/app" element={<DashboardLayout />}>
           <Route index element={<Navigate to="/app/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="earnings" element={<AdminEarningsPage />} />
           <Route path="bank/transfer" element={<BankTransfer />} />
           <Route path="p2p/transfer" element={<UserTransfer />} />
           
@@ -95,7 +98,6 @@ const App: React.FC = () => {
           <Route path="giftcards" element={<Giftcards />} />
           <Route path="giftcards/trades" element={<GiftcardTrades />} />
 
-          <Route path="analytics" element={<Analytics />} />
           <Route path="support" element={<SupportTicketPage />} />
           <Route path="support/:id" element={<SupportTicketDetail />} />
           <Route path="verification" element={<KycVerification />} />

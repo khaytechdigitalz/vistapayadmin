@@ -18,6 +18,7 @@ import {
   GiftIcon,
   Calculator,
   WalletCards,
+  WalletIcon,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -31,6 +32,7 @@ export interface NavItem {
 export const primaryNav: NavItem[] = [
   { label: "Dashboard", path: "/app/dashboard", icon: LayoutDashboard },
   { label: "Analytics", path: "/app/analytics", icon: BarChart3 },
+  { label: "System Earnings", path: "/app/earnings", icon: WalletIcon },
 ];
 
 export const wallettNav: NavItem[] = [

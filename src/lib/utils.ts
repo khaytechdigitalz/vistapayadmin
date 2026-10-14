@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-const API_STORAGE_URL = import.meta.env?.VITE_STORAGE_URL ?? "";
+const API_STORAGE_URL = import.meta.env?.VITE_STORAGE_URL ?? "https://vistapay.techprenure.com/storage/app/public";
 
 export function cn(...inputs: Array<string | false | null | undefined>) {
   return inputs.filter(Boolean).join(" ");
