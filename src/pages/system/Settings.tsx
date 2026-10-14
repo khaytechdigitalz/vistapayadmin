@@ -55,6 +55,10 @@ const DEFAULT_PROVIDERS = {
   transfer_charge: "100",
   usd_to_ngn_rate: "1500",
   card_creation_fee_usd: "2",
+  card_funding_fee_flat_api: "2",
+  card_funding_fee_percent_api: "2",
+  card_funding_fee_flat: "2",
+  card_funding_fee_percent: "2",
 };
 type ProviderKey = keyof typeof DEFAULT_PROVIDERS;
 
@@ -88,14 +92,26 @@ const DEFAULT_FLAGS = {
   internet_enabled: "1",
   cabletv_enabled: "1",
   utility_enabled: "1",
+  payout_enabled: "1",
+  insurance_enabled: "1",
+  virtual_card_enabled: "1",
+  giftcard_enabled: "1",
+  payment_link_enabled: "1",
+  international_airtime_enabled: "1",
 };
 type FlagKey = keyof typeof DEFAULT_FLAGS;
 
 const SERVICE_TOGGLES: { key: FlagKey; label: string }[] = [
   { key: "airtime_enabled", label: "Airtime" },
+  { key: "international_airtime_enabled", label: "International Airtime" },
   { key: "internet_enabled", label: "Internet Data" },
   { key: "cabletv_enabled", label: "Cable TV" },
   { key: "utility_enabled", label: "Electricity Utility" },
+  { key: "insurance_enabled", label: "Insurance" },
+  { key: "payout_enabled", label: "Bank Transfer" },
+  { key: "giftcard_enabled", label: "Giftcard" },
+  { key: "virtual_card_enabled", label: "Virtual Card" },
+  { key: "payment_link_enabled", label: "Payment Link" },
 ];
 const NOTIFICATION_TOGGLES: { key: FlagKey; label: string }[] = [
   { key: "sms_notification", label: "SMS Alerts" },
@@ -485,6 +501,11 @@ export const Settings: React.FC = () => {
     const transfer_charge = toNumber(providers.transfer_charge);
     const usd_to_ngn_rate = toNumber(providers.usd_to_ngn_rate);
     const card_creation_fee_usd = toNumber(providers.card_creation_fee_usd);
+    const card_funding_fee_flat_api = toNumber(providers.card_funding_fee_flat_api);
+    const card_funding_fee_percent_api = toNumber(providers.card_funding_fee_percent_api);
+    const card_funding_fee_flat = toNumber(providers.card_funding_fee_flat);
+    const card_funding_fee_percent = toNumber(providers.card_funding_fee_percent);
+
 
     if (!Number.isFinite(transfer_charge) || transfer_charge < 0) {
       push("Enter a valid transfer charge.", "error");
@@ -512,6 +533,12 @@ export const Settings: React.FC = () => {
         transfer_charge,
         usd_to_ngn_rate,
         card_creation_fee_usd,
+        card_funding_fee_flat_api,
+        card_funding_fee_percent_api,
+        card_funding_fee_flat,
+        card_funding_fee_percent,
+
+        
       });
       if (res.status) {
         push(res.message || "API providers updated successfully!", "success");
@@ -774,11 +801,40 @@ export const Settings: React.FC = () => {
               onChange={setProviderField("usd_to_ngn_rate")}
             />
             <NumberField
-              label="Virtual Card Creation Fee ($)"
+              label="Virtual Card Creation Fee (Flat) ($)"
               step="0.01"
               value={providers.card_creation_fee_usd}
               onChange={setProviderField("card_creation_fee_usd")}
             />
+            <NumberField
+              label="API Virtual Card Funding Fee ($)"
+              step="0.01"
+              value={providers.card_funding_fee_flat_api}
+              onChange={setProviderField("card_funding_fee_flat_api")}
+            />
+            <NumberField
+              label="API Virtual Card Funding Fee  (Percentage) (%)"
+              step="0.01"
+              value={providers.card_funding_fee_percent_api}
+              onChange={setProviderField("card_funding_fee_percent_api")}
+            /> 
+
+              <NumberField
+              label="Web Virtual Card Funding Fee (Flat) ($)"
+              step="0.01"
+              value={providers.card_funding_fee_flat}
+              onChange={setProviderField("card_funding_fee_flat")}
+            />
+            <NumberField
+              label="Web Virtual Card Funding Fee  (Percentage) (%)"
+              step="0.01"
+              value={providers.card_funding_fee_percent}
+              onChange={setProviderField("card_funding_fee_percent")}
+            /> 
+
+
+
+
           </div>
         </SettingsForm>
       )}

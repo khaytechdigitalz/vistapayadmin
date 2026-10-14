@@ -20,6 +20,10 @@ export interface SystemSettings {
   transfer_charge?: number;
   usd_to_ngn_rate?: number;
   card_creation_fee_usd?: number;
+  card_funding_fee_flat?: string;
+  card_funding_fee_percent?: string;
+  card_funding_fee_flat_api?: string;
+  card_funding_fee_percent_api?: string;
 
   // Feature Toggles & Maintenance
   maintenance_mode?: string | number;
@@ -31,6 +35,11 @@ export interface SystemSettings {
   internet_enabled?: string | number;
   cabletv_enabled?: string | number;
   utility_enabled?: string | number;
+  payout_enabled?: string | number;
+  insurance_enabled?: string | number;
+  payment_link_enabled?: string | number;
+  giftcard_enabled?: string | number;
+  virtual_card_enabled?: string | number;
 
   // Airtime Tier Limits
   airtime_daily_limit_new_user?: number;
@@ -83,6 +92,10 @@ export async function updateProviderSettings(payload: {
   transfer_charge: number;
   usd_to_ngn_rate: number;
   card_creation_fee_usd: number;
+  card_funding_fee_flat?: number;
+  card_funding_fee_percent?: number;
+  card_funding_fee_flat_api?: number;
+  card_funding_fee_percent_api?: number;
 }): Promise<{ status: boolean; message: string; data: SystemSettings }> {
   const res = await apiClient.post("/system/settings/providers", payload);
   return res.data;

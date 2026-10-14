@@ -15,7 +15,6 @@ import { AdminEarningsPage } from "@/pages/AdminEarningsPage";
 import { BankTransfer } from "@/pages/transfer/BankTransfer";
 import { UserTransfer } from "./pages/transfer/UserTransfer";
 
-import { Wallets } from "@/pages/Wallets";
 import { Deposit } from "@/pages/Deposit/Deposit";
 import { Transactions } from "@/pages/Transactions/Transactions";
 import { Beneficiaries } from "@/pages/Beneficiaries";
@@ -77,7 +76,6 @@ const App: React.FC = () => {
           <Route path="bank/transfer" element={<BankTransfer />} />
           <Route path="p2p/transfer" element={<UserTransfer />} />
           
-          <Route path="wallets" element={<Wallets />} />
           <Route path="deposit" element={<Deposit />} />
           <Route path="transactions" element={<Transactions />} />
           <Route path="transfer/beneficiaries" element={<Beneficiaries />} />

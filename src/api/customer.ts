@@ -128,3 +128,19 @@ export async function adjustCustomerWallet(
   const res = await apiClient.post(`/customers/${id}/wallet-adjust`, payload);
   return res.data;
 }
+
+/**
+ * Provision API access credentials for a customer.
+ */
+export async function grantCustomerApiAccess(id: string) {
+  const res = await apiClient.post(`/customers/${id}/api-access`);
+  return res.data;
+}
+
+/**
+ * Update / Revoke / Activate API access status for a customer.
+ */
+export async function updateCustomerApiStatus(id: string, status: "active" | "revoked" | "suspended") {
+  const res = await apiClient.patch(`/customers/${id}/api-access/status`, { status });
+  return res.data;
+}

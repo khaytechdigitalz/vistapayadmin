@@ -1,11 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Wallet, CreditCard, ShieldCheck, Loader2, ArrowUpRight, ArrowDownLeft, PlusCircle, MinusCircle } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Wallet, 
+  CreditCard, 
+  Loader2, 
+  PlusCircle, 
+  MinusCircle, 
+  KeyRound, 
+  CheckCircle2, 
+  XCircle, 
+  AlertCircle 
+} from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { useToast } from "@/context/ToastContext";
 import { formatNaira } from "@/lib/currency";
-import { fetchCustomerById, adjustCustomerWallet, Customer, CustomerTransaction } from "@/api/customer";
+import { 
+  fetchCustomerById, 
+  adjustCustomerWallet, 
+  grantCustomerApiAccess, 
+  updateCustomerApiStatus, 
+  Customer, 
+  CustomerTransaction 
+} from "@/api/customer";
 
 export const CustomerDetail: React.FC = () => {
   const { id } = useParams();
@@ -22,6 +40,14 @@ export const CustomerDetail: React.FC = () => {
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjustRemark, setAdjustRemark] = useState("");
   const [submittingAdjustment, setSubmittingAdjustment] = useState(false);
+
+  // API Access Modal States
+  const [grantModalOpen, setGrantModalOpen] = useState(false);
+  const [grantingApi, setGrantingApi] = useState(false);
+
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [selectedApiStatus, setSelectedApiStatus] = useState<"active" | "revoked" | "suspended">("active");
+  const [updatingApiStatus, setUpdatingApiStatus] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -72,6 +98,44 @@ export const CustomerDetail: React.FC = () => {
       push(err?.response?.data?.message || "Failed to adjust wallet.", "error");
     } finally {
       setSubmittingAdjustment(false);
+    }
+  };
+
+  // Handle Granting API Access
+  const handleGrantApiAccess = async () => {
+    if (!id) return;
+    try {
+      setGrantingApi(true);
+      const res = await grantCustomerApiAccess(id);
+      if (res.status) {
+        push(res.message || "API access granted successfully!", "success");
+        setGrantModalOpen(false);
+        loadCustomerDetails(id);
+      }
+    } catch (err: any) {
+      push(err?.response?.data?.message || "Failed to grant API access.", "error");
+    } finally {
+      setGrantingApi(false);
+    }
+  };
+
+  // Handle Updating API Access Status
+  const handleUpdateApiStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+
+    try {
+      setUpdatingApiStatus(true);
+      const res = await updateCustomerApiStatus(id, selectedApiStatus);
+      if (res.status) {
+        push(res.message || "API status updated successfully!", "success");
+        setStatusModalOpen(false);
+        loadCustomerDetails(id);
+      }
+    } catch (err: any) {
+      push(err?.response?.data?.message || "Failed to update API status.", "error");
+    } finally {
+      setUpdatingApiStatus(false);
     }
   };
 
@@ -136,6 +200,10 @@ export const CustomerDetail: React.FC = () => {
     );
   }
 
+  // Check apiaccess from endpoint (fallback to api_access if needed)
+  const apiAccess = (customer as any).apiaccess || (customer as any).api_access || null;
+  const hasApiAccess = apiAccess && Object.keys(apiAccess).length > 0;
+
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
       {/* Navigation & Header */}
@@ -146,12 +214,32 @@ export const CustomerDetail: React.FC = () => {
         >
           <ArrowLeft size={16} /> Back to Customers
         </button>
-        <button
-          onClick={() => setAdjustModalOpen(true)}
-          className="btn-primary py-2 px-4 text-xs flex items-center gap-1.5"
-        >
-          <Wallet size={15} /> Adjust Wallet
-        </button>
+        <div className="flex items-center gap-3">
+          {!hasApiAccess ? (
+            <button
+              onClick={() => setGrantModalOpen(true)}
+              className="btn-secondary py-2 px-4 text-xs flex items-center gap-1.5 border-primary/40 text-primary hover:bg-primary/5"
+            >
+              <KeyRound size={15} /> Grant API Access
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setSelectedApiStatus(apiAccess.status || "active");
+                setStatusModalOpen(true);
+              }}
+              className="btn-secondary py-2 px-4 text-xs flex items-center gap-1.5"
+            >
+              <KeyRound size={15} /> Manage API Access
+            </button>
+          )}
+          <button
+            onClick={() => setAdjustModalOpen(true)}
+            className="btn-primary py-2 px-4 text-xs flex items-center gap-1.5"
+          >
+            <Wallet size={15} /> Adjust Wallet
+          </button>
+        </div>
       </div>
 
       {/* Profile Overview Grid */}
@@ -176,6 +264,18 @@ export const CustomerDetail: React.FC = () => {
             <div className="flex justify-between">
               <span className="text-ink-900/50">KYC Status</span>
               <span className="font-bold text-primary uppercase">Tier {customer.kyc?.current_level || 0} ({customer.kyc?.status || "Pending"})</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-ink-900/50">API Access Status</span>
+              <span className={`font-bold capitalize px-2 py-0.5 rounded text-[10px] ${
+                apiAccess?.status === "active" 
+                  ? "bg-state-successbg text-state-success" 
+                  : apiAccess 
+                  ? "bg-state-failedbg text-state-error" 
+                  : "bg-surface-muted text-ink-900/50"
+              }`}>
+                {hasApiAccess ? apiAccess.status : "Not Provisioned"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-ink-900/50">Joined Date</span>
@@ -257,6 +357,66 @@ export const CustomerDetail: React.FC = () => {
           pageSize={15}
         />
       </div>
+
+      {/* --- GRANT API ACCESS CONFIRMATION MODAL --- */}
+      {grantModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-surface-border pb-3">
+              <h3 className="font-bold text-ink-900 text-base">Grant API Access</h3>
+              <button onClick={() => setGrantModalOpen(false)} className="text-ink-900/50 hover:text-ink-900">✕</button>
+            </div>
+            <p className="text-xs text-ink-900/70">
+              Are you sure you want to provision API access for <strong className="text-ink-900">{customer.name}</strong>? This will generate public and secret keys for external developer consumption.
+            </p>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setGrantModalOpen(false)} className="btn-secondary flex-1 py-2 text-xs">Cancel</button>
+              <button onClick={handleGrantApiAccess} disabled={grantingApi} className="btn-primary flex-1 py-2 text-xs flex items-center justify-center gap-2">
+                {grantingApi && <Loader2 size={14} className="animate-spin" />}
+                Confirm & Grant
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- UPDATE API STATUS MODAL --- */}
+      {statusModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-surface-border pb-3">
+              <h3 className="font-bold text-ink-900 text-base">Manage API Access Status</h3>
+              <button onClick={() => setStatusModalOpen(false)} className="text-ink-900/50 hover:text-ink-900">✕</button>
+            </div>
+
+            <form onSubmit={handleUpdateApiStatus} className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-ink-900/70">Select Status</label>
+                <select
+                  value={selectedApiStatus}
+                  onChange={(e) => setSelectedApiStatus(e.target.value as any)}
+                  className="input-field mt-1 w-full text-xs capitalize"
+                  required
+                >
+                  <option value="active">Active</option>
+                  <option value="revoked">Revoked</option>
+                </select>
+                <p className="text-[11px] text-ink-900/40 mt-1">
+                  Updating this status will immediately affect the customer's ability to call external APIs.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setStatusModalOpen(false)} className="btn-secondary flex-1 py-2 text-xs">Cancel</button>
+                <button type="submit" disabled={updatingApiStatus} className="btn-primary flex-1 py-2 text-xs flex items-center justify-center gap-2">
+                  {updatingApiStatus && <Loader2 size={14} className="animate-spin" />}
+                  Update Status
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* --- WALLET ADJUSTMENT MODAL --- */}
       {adjustModalOpen && (
